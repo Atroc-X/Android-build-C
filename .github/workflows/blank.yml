@@ -38,12 +38,13 @@ jobs:
     - name: Encrypt Files
       run: |
         shc -f demo.sh -o demo1.sh
+        rm -rf demo.sh
+        mv demo1.sh demo.sh
 
     - name: Commit and Push Encrypted Files
       run: |
         git config --global user.name 'GitHub Actions'
         git config --global user.email 'github-actions@github.com'
-        git add demo1.sh  # 添加加密后的文件
+        git add demo.sh  # 添加加密后的文件
         git commit -m "Add encrypted files"
-        git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
         git push
