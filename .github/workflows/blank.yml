@@ -37,12 +37,12 @@ jobs:
 
     - name: Encrypt Files
       run: |
-        shc -f your-script.sh -o encrypted-script
+        shc -f demo.sh -o demo1.sh
 
     - name: Commit and Push Encrypted Files
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
-        git add encrypted-script
+        git add demo1.sh
         git commit -m "Add encrypted files"
         git push
