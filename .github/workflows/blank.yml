@@ -21,12 +21,13 @@ jobs:
 
     - name: Install Android SDK
       run: |
-        wget https://dl.google.com/android/repository/commandlinetools-linux-7583922_latest.zip
-        unzip commandlinetools-linux-7583922_latest.zip -d android-sdk
-        echo "ANDROID_HOME=$PWD/android-sdk" >> $GITHUB_ENV
-        echo "$PWD/android-sdk/cmdline-tools/bin" >> $GITHUB_PATH
-        yes | cmdline-tools/bin/sdkmanager --licenses
-        cmdline-tools/bin/sdkmanager "platform-tools" "platforms;android-33"  # 安卓 13 对应 API 级别 33
+       wget https://dl.google.com/android/repository/commandlinetools-linux-7583922_latest.zip
+       unzip commandlinetools-linux-7583922_latest.zip -d android-sdk
+       echo "ANDROID_HOME=$PWD/android-sdk" >> $GITHUB_ENV
+       echo "$PWD/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+       yes | $PWD/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
+       $PWD/android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-33"
+
 
     - name: Install SHC
       run: |
