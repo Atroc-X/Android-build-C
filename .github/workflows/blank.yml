@@ -1,0 +1,36 @@
+name: Compile SHC on Android 13 Environment
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc g++
+
+    - name: Download and Extract SHC
+      run: |
+        wget http://www.datsi.fi.upm.es/~frosal/sources/shc-3.8.9.tgz
+        tar vxf shc-3.8.9.tgz
+
+    - name: Compile SHC
+      run: |
+        mkdir -p /usr/local/man/man1
+        cd shc-3.8.9
+        make test && make strings && make install
+
+    - name: Upload SHC Binary
+      uses: actions/upload-artifact@v2
+      with:
+        name: shc-binary
+        path: shc-3.8.9/shc  # 确保这是正确的二进制文件路径
