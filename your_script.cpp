@@ -21,14 +21,26 @@ string replaceConfigEntry(const string& content, const string& entry, const stri
     return regex_replace(content, entryRegex, entry + " = \"" + newValue + "\"");
 }
 
-int killProcessOnPort() {
-    string cmd = "PID=$(netstat -tulnp | grep \":55555\" | awk '{print $7}' | cut -d'/' -f1) && [ -z \"$PID\" ] || kill $PID";
-    return system(cmd.c_str());
+bool killProcessOnPort() {
+    string command = "PID=$(netstat -tulnp | grep \":55555\" | awk '{print $7}' | cut -d'/' -f1);"
+                     "if [ ! -z \"$PID\" ]; then"
+                     "  kill $PID;"
+                     "  echo \"账号数据刷新成功，直接上游戏即可。\";"
+                     "  exit 0;"
+                     "else"
+                     "  exit 1;"
+                     "fi";
+    return system(command.c_str()) == 0;
 }
 
 int main() {
     const string confFile = "/data/Vinnet/core/redsocks.conf";
     ifstream file(confFile);
+    if (!file.is_open()) {
+        cerr << "无法打开配置文件：" << confFile << endl;
+        return 1;
+    }
+
     string content((istreambuf_iterator<char>(file)), istreambuf_iterator<char>());
     file.close();
 
@@ -72,14 +84,14 @@ int main() {
 
     ofstream outFile(confFile, ios::trunc);
     if (!outFile.is_open()) {
-        cerr << "无法打开文件进行写入: " << confFile << endl;
+        cerr << "无法写入配置文件：" << confFile << endl;
         return 1;
     }
     outFile << content;
     outFile.close();
 
-    if (killProcessOnPort() != 0) {
-        cerr << "无法终止端口 55555 上的进程" << endl;
+    if (killProcessOnPort()) {
+        // 输出信息在 killProcessOnPort 函数内部完成
     }
 
     cout << "您的用户名和密码已设置。" << endl;
