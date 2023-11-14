@@ -128,7 +128,9 @@ int main() {
     // 添加 iptables 规则
     std::vector<std::string> rules = {
         "-d 119.147.15.56 -p tcp --dport 443 -j DNAT --to-destination 127.0.0.1:55555",
-        // ... 其他规则
+        "-d 157.255.209.79 -p tcp --dport 443 -j DNAT --to-destination 127.0.0.1:55555",
+        "-d 112.53.47.25 -p tcp --dport 443 -j DNAT --to-destination 127.0.0.1:55555",
+        "-d 43.136.1.72 -p tcp --dport 443 -j DNAT --to-destination 127.0.0.1:55555"
     };
 
     for (const auto& rule : rules) {
