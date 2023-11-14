@@ -37,7 +37,12 @@ void startProxy() {
 }
 
 void handleSgameStart() {
-    if (exec("netstat -tuln | grep -q \"127.0.0.1:55555\"").empty()) {
+    // 使用netstat命令检查端口55555是否在使用
+    std::string command = "netstat -tuln | grep \"127.0.0.1:55555\"";
+    std::string result = exec(command.c_str());
+
+    // 如果结果为空，说明端口未在使用，启动代理
+    if (result.empty()) {
         startProxy();
     }
 }
