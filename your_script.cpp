@@ -26,16 +26,18 @@ std::string exec(const char* cmd) {
     return result;
 }
 
-bool isPortUsed() {
-    return exec("netstat -tuln | grep -q \"127.0.0.1:55555\"").empty();
-}
-
 void startProxy() {
-    system("/data/Vinnet/core/redsocks2 -c /data/Vinnet/core/redsocks.conf &");
+    pid_t pid = fork();
+    if (pid == 0) {
+        execl("/bin/sh", "sh", "-c", "/data/Vinnet/core/redsocks2 -c /data/Vinnet/core/redsocks.conf", nullptr);
+        exit(EXIT_FAILURE);
+    } else if (pid < 0) {
+        std::cerr << "Failed to fork" << std::endl;
+    }
 }
 
 void handleSgameStart() {
-    if (!isPortUsed()) {
+    if (exec("netstat -tuln | grep -q \"127.0.0.1:55555\"").empty()) {
         startProxy();
     }
 }
@@ -45,16 +47,44 @@ bool ruleExists(const std::string& rule) {
     return system(command.c_str()) == 0;
 }
 
-void addRule(const std::string& rule) {
-    if (!ruleExists(rule)) {
-        std::string command = "iptables " + rule;
-        exec(command.c_str());
+void addIptablesRules() {
+    std::vector<std::string> rules = {
+        "-t nat -A OUTPUT -d 119.147.15.56 -p tcp --dport 443 -j DNAT --to-destination 127.0.0.1:55555",
+        "-t nat -A OUTPUT -d 157.255.209.79 -p tcp --dport 443 -j DNAT --to-destination 127.0.0.1:55555",
+        "-t nat -A OUTPUT -d 112.53.47.25 -p tcp --dport 443 -j DNAT --to-destination 127.0.0.1:55555",
+        "-t nat -A OUTPUT -d 43.136.1.72 -p tcp --dport 443 -j DNAT --to-destination 127.0.0.1:55555"
+    };
+
+    for (const auto& rule : rules) {
+        if (!ruleExists(rule)) {
+            std::string command = "iptables " + rule;
+            system(command.c_str());
+        }
     }
 }
 
-void deletePath(const std::string& path) {
-    std::string command = "rm -rf " + path;
-    exec(command.c_str());
+std::string findSgameDirectory() {
+    std::string systemPath = "/private/var/mobile/Containers/Data/Application";
+    DIR* dir = opendir(systemPath.c_str());
+    struct dirent* entry;
+
+    if (dir == nullptr) {
+        std::cerr << "Failed to open directory: " << systemPath << std::endl;
+        return "";
+    }
+
+    while ((entry = readdir(dir)) != nullptr) {
+        if (entry->d_type == DT_DIR) {
+            std::string subDirPath = systemPath + "/" + entry->d_name + "/Documents/ShadowTrackerExtra";
+            if (access(subDirPath.c_str(), F_OK) != -1) {
+                closedir(dir);
+                return systemPath + "/" + entry->d_name; // Found the game directory
+            }
+        }
+    }
+
+    closedir(dir);
+    return ""; // Game directory not found
 }
 
 void deleteSgamePrefFiles(const std::string& appPath) {
@@ -85,40 +115,20 @@ void deleteSgamePrefFiles(const std::string& appPath) {
     };
 
     for (const auto& path : pathsToDelete) {
-        deletePath(appPath + path);
+        std::string fullPath = appPath + path;
+        std::string command = "rm -rf " + fullPath;
+        system(command.c_str());
     }
-}
-
-std::string findSgameDirectory() {
-    std::string systemPath = "/private/var/mobile/Containers/Data/Application";
-    DIR* dir = opendir(systemPath.c_str());
-    struct dirent* entry;
-
-    if (dir == nullptr) {
-        std::cerr << "Failed to open directory: " << systemPath << std::endl;
-        return "";
-    }
-
-    while ((entry = readdir(dir)) != nullptr) {
-        if (entry->d_type == DT_DIR) {
-            std::string subPath = systemPath + "/" + entry->d_name + "/Documents/ShadowTrackerExtra";
-            if (access(subPath.c_str(), F_OK) != -1) {
-                closedir(dir);
-                return systemPath + "/" + entry->d_name;
-            }
-        }
-    }
-
-    closedir(dir);
-    return ""; // 未找到游戏目录
 }
 
 void startService() {
+    const std::string procName = "com.tencent.tmgp.sgame";
+
     while (true) {
-        if (exec("ps -A | grep 'com.tencent.tmgp.sgame' | wc -l") != "0\n") {
+        if (exec(("ps -A | grep " + procName + " | wc -l").c_str()) != "0\n") {
             handleSgameStart();
 
-            while (exec("ps -A | grep 'com.tencent.tmgp.sgame' | wc -l") != "0\n") {
+            while (exec(("ps -A | grep " + procName + " | wc -l").c_str()) != "0\n") {
                 sleep(5);
             }
 
@@ -135,17 +145,8 @@ void startService() {
 int main() {
     std::cout << "开始运行" << std::endl;
 
-    std::vector<std::string> rules = {
-        "-t nat -A OUTPUT -d 119.147.15.56 -p tcp --dport 443 -j DNAT --to-destination 127.0.0.1:55555",
-        "-t nat -A OUTPUT -d 157.255.209.79 -p tcp --dport 443 -j DNAT --to-destination 127.0.0.1:55555",
-        "-t nat -A OUTPUT -d 112.53.47.25 -p tcp --dport 443 -j DNAT --to-destination 127.0.0.1:55555",
-        "-t nat -A OUTPUT -d 43.136.1.72 -p tcp --dport 443 -j DNAT --to-destination 127.0.0.1:55555"
-    };
-
-    for (const auto& rule : rules) {
-        addRule(rule);
-    }
-
+    addIptablesRules();
     startService();
+
     return 0;
 }
