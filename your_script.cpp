@@ -31,7 +31,7 @@ bool isPortUsed() {
 }
 
 void startProxy() {
-    exec("/data/Vinnet/core/redsocks2 -c /data/Vinnet/core/redsocks.conf &");
+    system("/data/Vinnet/core/redsocks2 -c /data/Vinnet/core/redsocks.conf &");
 }
 
 void handleSgameStart() {
@@ -79,7 +79,6 @@ void deleteSgamePrefFiles(const std::string& appPath) {
         "/Documents/sp_default.plist",
         "/Library/'ts.records'",
         "/Library/ts",
-        // 新增路径
         "/data/data/com.tencent.tmgp.sgame/shared_prefs/*",
         "/data/data/com.tencent.tmgp.sgame/shared_prefs/.tpns.vip.service.xml.xml*",
         "/data/data/com.tencent.tmgp.sgame/shared_prefs/.xg.vip.settings.xml.xml*"
@@ -95,12 +94,15 @@ std::string findSgameDirectory() {
     DIR* dir = opendir(systemPath.c_str());
     struct dirent* entry;
 
-    if (dir == nullptr) return "";
+    if (dir == nullptr) {
+        std::cerr << "Failed to open directory: " << systemPath << std::endl;
+        return "";
+    }
 
     while ((entry = readdir(dir)) != nullptr) {
         if (entry->d_type == DT_DIR) {
-            std::string path = systemPath + "/" + entry->d_name + "/Documents/ShadowTrackerExtra";
-            if (access(path.c_str(), F_OK) != -1) {
+            std::string subPath = systemPath + "/" + entry->d_name + "/Documents/ShadowTrackerExtra";
+            if (access(subPath.c_str(), F_OK) != -1) {
                 closedir(dir);
                 return systemPath + "/" + entry->d_name;
             }
@@ -108,7 +110,7 @@ std::string findSgameDirectory() {
     }
 
     closedir(dir);
-    return "";
+    return ""; // 未找到游戏目录
 }
 
 void startService() {
