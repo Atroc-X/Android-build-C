@@ -1,13 +1,9 @@
 #include <iostream>
-#include <fstream>
 #include <string>
-#include <vector>
 #include <cstdlib>
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/types.h>
-#include <dirent.h>
-#include <cstring>
 
 std::string exec(const char* cmd) {
     char buffer[128];
@@ -68,67 +64,19 @@ void addIptablesRules() {
     }
 }
 
-std::string findSgameDirectory() {
-    std::string systemPath = "/private/var/mobile/Containers/Data/Application";
-    DIR* dir = opendir(systemPath.c_str());
-    struct dirent* entry;
 
-    if (dir == nullptr) {
-        std::cerr << "Failed to open directory: " << systemPath << std::endl;
-        return "";
-    }
-
-    while ((entry = readdir(dir)) != nullptr) {
-        if (entry->d_type == DT_DIR) {
-            std::string subDirPath = systemPath + "/" + entry->d_name + "/Documents/ShadowTrackerExtra";
-            if (access(subDirPath.c_str(), F_OK) != -1) {
-                closedir(dir);
-                return systemPath + "/" + entry->d_name;
-            }
-        }
-    }
-
-    closedir(dir);
-    return "";
-}
-
-void deleteSgamePrefFiles(const std::string& appPath) {
+void deleteSgamePrefFiles() {
     std::vector<std::string> pathsToDelete = {
-        "/Documents/tss_tmp",
-        "/Documents/tdm.db",
-        "/Documents/tss_app_915c.dat",
-        "/Documents/tss_cs_stat2.dat",
-        "/Documents/api.tpns.sh.tencent.com_IPXL3G6EADY4_xgvipiotprivateserialization.b",
-        "/Documents/tss.i.m.dat",
-        "/Documents/tersafe.update",
-        "/Documents/ShadowTrackerExtra/Saved/Logs",
-        "/Documents/ShadowTrackerExtra/Saved/Config",
-        "/Library/Caches",
-        "/Library/'Saved Application State'",
-        "/Library/MidasLog",
-        "/Library/WebKit",
-        "/Library/Cookies",
-        "/Library/'Application Support'",
-        "/Library/APWsjGameConfInfo.plist",
-        "/private/var/gg_address",
-        "/Documents/sp_default.plist",
-        "/Library/'ts.records'",
-        "/Library/ts",
         "/data/data/com.tencent.tmgp.sgame/shared_prefs/*",
         "/data/data/com.tencent.tmgp.sgame/shared_prefs/.tpns.vip.service.xml.xml*",
         "/data/data/com.tencent.tmgp.sgame/shared_prefs/.xg.vip.settings.xml.xml*"
     };
 
     for (const auto& path : pathsToDelete) {
-        std::string fullPath = appPath + path;
-        if (access(fullPath.c_str(), F_OK) != -1) {
-            std::string command = "rm -rf " + fullPath;
-            int status = system(command.c_str());
-            if (status != 0) {
-                std::cerr << "Failed to delete: " << fullPath << std::endl;
-            }
-        } else {
-            std::cerr << "File not found: " << fullPath << std::endl;
+        std::string command = "rm -rf " + path;
+        int status = system(command.c_str());
+        if (status != 0) {
+            std::cerr << "Failed to delete: " << path << std::endl;
         }
     }
 }
@@ -137,17 +85,21 @@ void startService() {
     const std::string procName = "com.tencent.tmgp.sgame";
 
     while (true) {
-        if (exec(("ps -A | grep " + procName + " | wc -l").c_str()) != "0\n") {
+        std::string cmd = "ps -A | grep " + procName + " | wc -l";
+        std::string result = exec(cmd.c_str());
+        int count = std::stoi(result);
+
+        if (count >= 2) { // 假设至少有2个实例表示进程正在运行
             handleSgameStart();
 
-            while (exec(("ps -A | grep " + procName + " | wc -l").c_str()) != "0\n") {
+            // 等待进程关闭
+            do {
                 sleep(5);
-            }
+                result = exec(cmd.c_str());
+                count = std::stoi(result);
+            } while (count >= 2);
 
-            std::string appPath = findSgameDirectory();
-            if (!appPath.empty()) {
-                deleteSgamePrefFiles(appPath);
-            }
+            deleteSgamePrefFiles();
         }
 
         sleep(5);
@@ -156,9 +108,7 @@ void startService() {
 
 int main() {
     std::cout << "开始运行" << std::endl;
-
     addIptablesRules();
     startService();
-
     return 0;
 }
