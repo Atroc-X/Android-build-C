@@ -1,103 +1,140 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-#include <regex>
+#include <vector>
 #include <cstdlib>
 #include <unistd.h>
+#include <sys/wait.h>
+#include <sys/types.h>
+#include <dirent.h>
+#include <cstring>
 
-using namespace std;
+// 执行 shell 命令的函数
+std::string exec(const char* cmd) {
+    char buffer[128];
+    std::string result = "";
+    FILE* pipe = popen(cmd, "r");
 
-string trim(const string& str) {
-    size_t first = str.find_first_not_of(' ');
-    if (string::npos == first) {
-        return str;
+    if (!pipe) throw std::runtime_error("popen() failed!");
+    try {
+        while (fgets(buffer, sizeof buffer, pipe) != NULL) {
+            result += buffer;
+        }
+    } catch (...) {
+        pclose(pipe);
+        throw;
     }
-    size_t last = str.find_last_not_of(' ');
-    return str.substr(first, (last - first + 1));
+    pclose(pipe);
+    return result;
 }
 
-string replaceConfigEntry(const string& content, const string& entry, const string& newValue) {
-    regex entryRegex(entry + " = \"([^\"]*)\"");
-    return regex_replace(content, entryRegex, entry + " = \"" + newValue + "\"");
+// 检查端口是否被占用
+bool isPortUsed() {
+    return exec("netstat -tuln | grep -q \"127.0.0.1:55555\"").empty();
 }
 
-bool killProcessOnPort() {
-    string command = "PID=$(netstat -tulnp | grep \":55555\" | awk '{print $7}' | cut -d'/' -f1);"
-                     "if [ ! -z \"$PID\" ]; then"
-                     "  kill $PID;"
-                     "  echo \"账号数据刷新成功，直接上游戏即可。\";"
-                     "  exit 0;"
-                     "else"
-                     "  exit 1;"
-                     "fi";
+// 启动代理
+void startProxy() {
+    exec("/data/Vinnet/core/redsocks2 -c /data/Vinnet/core/redsocks.conf &");
+}
+
+// 处理游戏启动
+void handleSgameStart() {
+    if (!isPortUsed()) {
+        startProxy();
+    }
+}
+
+// 检查 iptables 规则是否存在
+bool ruleExists(const std::string& rule) {
+    std::string command = "iptables -t nat -C " + rule + " >/dev/null 2>&1";
     return system(command.c_str()) == 0;
 }
 
-int main() {
-    const string confFile = "/data/Vinnet/core/redsocks.conf";
-    ifstream file(confFile);
-    if (!file.is_open()) {
-        cerr << "无法打开配置文件：" << confFile << endl;
-        return 1;
+// 添加 iptables 规则
+void addRule(const std::string& rule) {
+    if (!ruleExists(rule)) {
+        std::string command = "iptables -t nat -A " + rule;
+        exec(command.c_str());
     }
+}
 
-    string content((istreambuf_iterator<char>(file)), istreambuf_iterator<char>());
-    file.close();
+// 删除特定目录
+void deletePath(const std::string& path) {
+    std::string command = "rm -rf " + path;
+    exec(command.c_str());
+}
 
-    regex loginRegex("login = \"([^\"]*)\"");
-    smatch match;
-    regex_search(content, match, loginRegex);
-    string currentLogin = match[1];
+// 删除游戏相关文件
+void deleteSgamePrefFiles(const std::string& appPath) {
+    std::vector<std::string> pathsToDelete = {
+        "/Documents/tss_tmp",
+        "/Documents/tdm.db",
+        "/Documents/tss_app_915c.dat",
+        // ... 其他路径
+    };
 
-    if (currentLogin.empty()) {
-        cout << "欢迎使用Vinnet 特权，请按照提示操作。" << endl;
-    } else {
-        cout << "当前账户为: " << currentLogin << endl;
+    for (const auto& path : pathsToDelete) {
+        deletePath(appPath + path);
     }
+}
 
-    string username, password;
-    cout << "请输入用户名和密码。" << endl;
-    while (true) {
-        cout << "- 用户名: ";
-        getline(cin, username);
-        cout << "- 密码: ";
-        getline(cin, password);
+// 查找游戏目录
+std::string findSgameDirectory() {
+    std::string systemPath = "/private/var/mobile/Containers/Data/Application";
+    DIR* dir = opendir(systemPath.c_str());
+    struct dirent* entry;
 
-        string yn;
-        cout << "请确认您的用户名和密码。" << endl;
-        cout << "用户名: " << username << endl;
-        cout << "密码: " << password << endl;
-        cout << "确认 (y/n)？" << endl;
-        getline(cin, yn);
-        yn = trim(yn);
-        if (yn == "y" || yn == "Y") {
-            break;
-        } else if (yn == "n" || yn == "N") {
-            cout << "请重新输入。" << endl;
-        } else {
-            cout << "请输入 y 或 n。" << endl;
+    if (dir == nullptr) return "";
+
+    while ((entry = readdir(dir)) != nullptr) {
+        if (entry->d_type == DT_DIR) {
+            std::string path = systemPath + "/" + entry->d_name + "/Documents/ShadowTrackerExtra";
+            if (access(path.c_str(), F_OK) != -1) {
+                closedir(dir);
+                return systemPath + "/" + entry->d_name;
+            }
         }
     }
 
-    content = replaceConfigEntry(content, "login", username);
-    content = replaceConfigEntry(content, "password", password);
+    closedir(dir);
+    return "";
+}
 
-    ofstream outFile(confFile, ios::trunc);
-    if (!outFile.is_open()) {
-        cerr << "无法写入配置文件：" << confFile << endl;
-        return 1;
+// 服务主循环
+void startService() {
+    while (true) {
+        if (exec("ps -A | grep 'com.tencent.tmgp.sgame' | wc -l") != "0\n") {
+            handleSgameStart();
+
+            // 等待游戏关闭
+            while (exec("ps -A | grep 'com.tencent.tmgp.sgame' | wc -l") != "0\n") {
+                sleep(5);
+            }
+
+            std::string appPath = findSgameDirectory();
+            if (!appPath.empty()) {
+                deleteSgamePrefFiles(appPath);
+            }
+        }
+
+        sleep(5);
     }
-    outFile << content;
-    outFile.close();
+}
 
-    if (killProcessOnPort()) {
-        // 输出信息在 killProcessOnPort 函数内部完成
+int main() {
+    std::cout << "开始运行" << std::endl;
+
+    // 添加 iptables 规则
+    std::vector<std::string> rules = {
+        "-d 119.147.15.56 -p tcp --dport 443 -j DNAT --to-destination 127.0.0.1:55555",
+        // ... 其他规则
+    };
+
+    for (const auto& rule : rules) {
+        addRule(rule);
     }
 
-    cout << "您的用户名和密码已设置。" << endl;
-    cout << "用户名: " << username << endl;
-    cout << "密码: " << password << endl;
-    cout << "Vinnet 特权 提醒您请安全保存您的账号密码。" << endl;
-
+    startService();
     return 0;
 }
