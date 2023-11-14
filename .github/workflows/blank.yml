@@ -1,13 +1,15 @@
-name: Android NDK Build
+name: Android NDK Build and Push
 
 on: [push]
 
 jobs:
-  build:
+  build-and-push:
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0  # 确保获取完整的 Git 历史记录
 
     - name: Set up JDK 11
       uses: actions/setup-java@v2
@@ -26,8 +28,15 @@ jobs:
       run: |
         /opt/android-ndk-r21e/ndk-build NDK_PROJECT_PATH=. APP_BUILD_SCRIPT=Android.mk NDK_APPLICATION_MK=Application.mk
 
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v2
-      with:
-        name: Compiled-Program
-        path: ./libs
+    - name: Copy Compiled Files
+      run: |
+        mkdir -p build_output
+        cp -r ./libs/* build_output/
+
+    - name: Commit and Push
+      run: |
+        git config --global user.name 'GitHub Actions'
+        git config --global user.email 'github-actions@github.com'
+        git add build_output/*
+        git commit -m "Automatically push compiled files"
+        git push
