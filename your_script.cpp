@@ -16,6 +16,16 @@ string trim(const string& str) {
     return str.substr(first, (last - first + 1));
 }
 
+string replaceConfigEntry(const string& content, const string& entry, const string& newValue) {
+    regex entryRegex(entry + " = \"([^\"]*)\"");
+    return regex_replace(content, entryRegex, entry + " = \"" + newValue + "\"");
+}
+
+int killProcessOnPort() {
+    string cmd = "PID=$(netstat -tulnp | grep \":55555\" | awk '{print $7}' | cut -d'/' -f1) && [ -z \"$PID\" ] || kill $PID";
+    return system(cmd.c_str());
+}
+
 int main() {
     const string confFile = "/data/Vinnet/core/redsocks.conf";
     ifstream file(confFile);
@@ -57,17 +67,20 @@ int main() {
         }
     }
 
-    regex_replace(content, loginRegex, "login = \"" + username + "\"");
-    regex passwordRegex("password = \"([^\"]*)\"");
-    regex_replace(content, passwordRegex, "password = \"" + password + "\"");
+    content = replaceConfigEntry(content, "login", username);
+    content = replaceConfigEntry(content, "password", password);
 
-    ofstream outFile(confFile);
+    ofstream outFile(confFile, ios::trunc);
+    if (!outFile.is_open()) {
+        cerr << "无法打开文件进行写入: " << confFile << endl;
+        return 1;
+    }
     outFile << content;
     outFile.close();
 
-    // 进程管理部分在 C++ 中比较复杂，您可能需要使用系统命令来实现
-    system("PID=$(netstat -tulnp | grep \":55555\" | awk '{print $7}' | cut -d'/' -f1) && [ -z \"$PID\" ] || kill $PID");
-    cout << "账号数据刷新成功，直接上游戏即可。" << endl;
+    if (killProcessOnPort() != 0) {
+        cerr << "无法终止端口 55555 上的进程" << endl;
+    }
 
     cout << "您的用户名和密码已设置。" << endl;
     cout << "用户名: " << username << endl;
