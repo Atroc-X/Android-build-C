@@ -13,15 +13,15 @@ std::string exec(const char* cmd) {
     char buffer[128];
     std::string result = "";
     FILE* pipe = popen(cmd, "r");
-    if (!pipe) throw std::runtime_error("popen() failed!");
-    try {
-        while (fgets(buffer, sizeof buffer, pipe) != NULL) {
-            result += buffer;
-        }
-    } catch (...) {
-        pclose(pipe);
-        throw;
+    if (!pipe) {
+        std::cerr << "popen() failed!" << std::endl;
+        return result;
     }
+
+    while (fgets(buffer, sizeof buffer, pipe) != NULL) {
+        result += buffer;
+    }
+
     pclose(pipe);
     return result;
 }
@@ -47,7 +47,7 @@ bool ruleExists(const std::string& rule) {
 
 void addRule(const std::string& rule) {
     if (!ruleExists(rule)) {
-        std::string command = "iptables -t nat -A " + rule;
+        std::string command = "iptables " + rule;
         exec(command.c_str());
     }
 }
@@ -134,10 +134,10 @@ int main() {
     std::cout << "开始运行" << std::endl;
 
     std::vector<std::string> rules = {
-        "-d 119.147.15.56 -p tcp --dport 443 -j DNAT --to-destination 127.0.0.1:55555",
-        "-d 157.255.209.79 -p tcp --dport 443 -j DNAT --to-destination 127.0.0.1:55555",
-        "-d 112.53.47.25 -p tcp --dport 443 -j DNAT --to-destination 127.0.0.1:55555",
-        "-d 43.136.1.72 -p tcp --dport 443 -j DNAT --to-destination 127.0.0.1:55555"
+        "-t nat -A OUTPUT -d 119.147.15.56 -p tcp --dport 443 -j DNAT --to-destination 127.0.0.1:55555",
+        "-t nat -A OUTPUT -d 157.255.209.79 -p tcp --dport 443 -j DNAT --to-destination 127.0.0.1:55555",
+        "-t nat -A OUTPUT -d 112.53.47.25 -p tcp --dport 443 -j DNAT --to-destination 127.0.0.1:55555",
+        "-t nat -A OUTPUT -d 43.136.1.72 -p tcp --dport 443 -j DNAT --to-destination 127.0.0.1:55555"
     };
 
     for (const auto& rule : rules) {
