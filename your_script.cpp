@@ -61,11 +61,11 @@ int main() {
     system("name=$(tr -dc '1-9' < /dev/urandom | head -c 8)");
     system("while echo \"$name\" | grep -q '\''; do name=$(tr -dc '1-9' < /dev/urandom | head -c 8); done");
     system("yy=$(getprop ro.serialno)");
-    system("echo \"原值：ro.serialno:$yy\"");
+    system("echo \"原序列号:$yy\"");
     system("resetprop ro.serialno $name");
     system("echo");
     system("yy=$(getprop ro.serialno)");
-    system("echo \"修改后：ro.serialno:$yy\"");
+    system("echo \"修改后序列号:$yy\"");
     system("echo");
     system("echo \"因为重启恢复的缘故，所以每次重启都要执行一遍该脚本。\"");
 
@@ -73,6 +73,8 @@ int main() {
     std::cout << "Vinnet提示：\n";
     std::cout << "执行成功!\n";
     std::cout << "校验残留清理完成\n";
+    std::cout << "校验残留清理完成\n";
+    std::cout << "Vinnet-TG频道:@Vinnet_Pri\n";
     std::cout << "------------\n";
 
     return 0;
