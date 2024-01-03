@@ -11,18 +11,23 @@ int main() {
     system("rm -rf /data/data/com.tencent.tmgp.sgame/files/ano_tmp");
     system("rm -rf /data/user/0/com.tencent.tmgp.sgame/files/ano_tmp");
 
-    // 使用管道执行完整的Shell脚本
-    system("echo \""
-        "prog_name='/data/temp';"
-        "name=$(tr -dc '1-9' < /dev/urandom | head -c 8);"
-        "while echo \\\"$name\\\" | grep -q \\\"'\\\"; do name=$(tr -dc '1-9' < /dev/urandom | head -c 8); done;"
-        "yy=$(getprop ro.serialno);"
-        "echo \\\"原序列号:$yy\\\";"
-        "resetprop ro.serialno $name;"
-        "yy=$(getprop ro.serialno);"
-        "echo \\\"修改后序列号:$yy\\\";"
-        "echo '因为重启恢复的缘故，所以每次重启都要执行一遍该脚本。'"
-        "\" | sh");
+    // 执行Shell脚本
+    const char* script = 
+    "echo; "
+    "prog_name='/data/temp'; "
+    "name=$(tr -dc '1-9' < /dev/urandom | head -c 8); "
+    "while echo \"$name\" | grep -q \"'\"; do name=$(tr -dc '1-9' < /dev/urandom | head -c 8); done; "
+    "yy=$(getprop ro.serialno); "
+    "echo \"原序列号:$yy\"; "
+    "resetprop ro.serialno $name; "
+    "yy=$(getprop ro.serialno); "
+    "echo \"修改后序列号:$yy\"; "
+    "echo '因为重启恢复的缘故，所以每次重启都要执行一遍该脚本。'; ";
+    
+    std::string command = "bash -c '";
+    command += script;
+    command += "'";
+    system(command.c_str());
 
     std::cout << "------------\n";
     std::cout << "Vinnet提示：\n";
