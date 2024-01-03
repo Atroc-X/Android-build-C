@@ -73,7 +73,6 @@ int main() {
     std::cout << "Vinnet提示：\n";
     std::cout << "执行成功!\n";
     std::cout << "校验残留清理完成\n";
-    std::cout << "校验残留清理完成\n";
     std::cout << "Vinnet-TG频道:@Vinnet_Pri\n";
     std::cout << "------------\n";
 
