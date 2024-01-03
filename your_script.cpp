@@ -10,13 +10,13 @@ int main() {
     system("rm -rf /data/data/com.tencent.tmgp.sgame/shared_prefs/.xg.vip.settings.xml.xml*");
     system("rm -rf /data/data/com.tencent.tmgp.sgame/files/ano_tmp");
     system("rm -rf /data/user/0/com.tencent.tmgp.sgame/files/ano_tmp");
-    
+
     // 执行Shell脚本
     system(
         "echo && "
-        "prog_name=\"/data/temp\" && "
+        "prog_name='/data/temp' && "
         "name=$(tr -dc '1-9' < /dev/urandom | head -c 8) && "
-        "while echo \"$name\" | grep -q '\''; do name=$(tr -dc '1-9' < /dev/urandom | head -c 8); done && "
+        "while echo \"$name\" | grep -q '\\''; do name=$(tr -dc '1-9' < /dev/urandom | head -c 8); done && "
         "yy=$(getprop ro.serialno) && "
         "echo \"原序列号:$yy\" && "
         "resetprop ro.serialno $name && "
@@ -24,7 +24,7 @@ int main() {
         "yy=$(getprop ro.serialno) && "
         "echo \"修改后序列号:$yy\" && "
         "echo && "
-        "echo \"因为重启恢复的缘故，所以每次重启都要执行一遍该脚本。\""
+        "echo '因为重启恢复的缘故，所以每次重启都要执行一遍该脚本。'"
     );
 
     std::cout << "------------\n";
